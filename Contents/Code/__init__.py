@@ -1,5 +1,6 @@
 # Data18-Content
 import re
+import os
 import random
 from datetime import datetime
 
@@ -20,12 +21,10 @@ titleFormats = r'DVD|Blu-Ray|BR|Combo|Pack'
 
 XPATHS = {
     # Parse Document
-    'network': '//a[contains(@href,"http://www.data18.com/sites/") \
-                and following-sibling::i[position()=1][text()="Network"]]',
-    'site': '//a[contains(@href,"http://www.data18.com/sites/") \
-                and following-sibling::i[position()=1][text()="Site"]]',
-    'studio': '//a[contains(@href,"http://www.data18.com/studios/") \
-                and following-sibling::i[position()=1][text()="Studio"]]',
+    'network': '//a[contains(@href,"http://www.data18.com/sites/") and following-sibling::i[position()=1][text()="Network"]]',
+    'site': '//a[contains(@href,"http://www.data18.com/sites/") and following-sibling::i[position()=1][text()="Site"]]',
+	'site2': '//a[contains(@href,"http://www.data18.com/studios/") and following-sibling::i[position()=1][text()="Site"]]',
+    'studio': '//a[contains(@href,"http://www.data18.com/studios/") and following-sibling::i[position()=1][text()="Studio"]]',
     # Search Result Xpaths
     'scene-container': '//div[contains(@class,"bscene")]',
     'scene-link': '//span//a[contains(@href,"content")]',
@@ -34,20 +33,12 @@ XPATHS = {
     'scene-cast': '//p[contains(text(), "Cast")]]',
 
     # Actor in site Search results
-    'site-link': '//select//Option[text()[contains(\
-                        translate(., "$u", "$l"), "$s")\
-                        ]]//@value',
-    'actor-site-link': '//a[text()[contains(\
-                            translate(., "$u", "$l"), "$s")\
-                            ]]//@href',
+    'site-link': '//select//Option[text()[contains(translate(., "$u", "$l"), "$s")]]//@value',
+    'actor-site-link': '//a[text()[contains(translate(., "$u", "$l"), "$s")]]//@href',
     # Content Page Xpaths
-    'release-date': '//p[text()[contains(\
-                        translate(.,"relasdt","RELASDT"),\
-                        "RELEASE DATE")]]//a',
-    'release-date2': '//*[b[contains(text(),"Scene Information")]]\
-                        //a[@title="Show me all updates from this date"]',
-    'release-date3': '//*[b[contains(text(),"Scene Information")]]\
-                        /span[@class="gen11"]/b',
+    'release-date': '//p[text()[contains(translate(.,"relasdt","RELASDT"),"RELEASE DATE")]]//a',
+    'release-date2': '//*[b[contains(text(),"Scene Information")]]//a[@title="Show me all updates from this date"]',
+    'release-date3': '//*[b[contains(text(),"Scene Information")]]/span[@class="gen11"]/b',
     # Images
     'poster-image': '//img[@alt="poster"]',
     'single-image-url': '//img[contains(@alt,"image")]/..',
@@ -106,6 +97,13 @@ def parse_document_site(html):
     # Site
     try:
         return html.xpath(XPATHS['site'])[0].text_content().strip()
+    except:
+        return None
+		
+def parse_document_site2(html):
+    # Site
+    try:
+        return html.xpath(XPATHS['site2'])[0].text_content().strip()
     except:
         return None
 
@@ -264,12 +262,21 @@ class EXCAgent(Agent.Movies):
         Log('Data18 Version : ' + VERSION_NO)
         Log('**************SEARCH****************')
         title = media.name
+        titleidfront = media.name.split(None,1)[0]
+        titleidback = media.name.rsplit(None,1)[1]
+
         content_id = False
 
-        if media.name.isdigit():
+        if titleidfront.isdigit() or titleidback.isdigit():
+            Log('Media.name is numeric')
+            if int(titleidfront) > 2100:
+                titleid = titleidfront
+            else:
+                titleid = titleidback
+            
             Log('Media.name is numeric')
             content_id = True
-            contentURL = EXC_MOVIE_INFO % media.name
+            contentURL = EXC_MOVIE_INFO % titleid
             html = HTML.ElementFromURL(contentURL)
             curdate = parse_document_date(html)
 
@@ -279,7 +286,7 @@ class EXCAgent(Agent.Movies):
 
             title = format_search_title(title, curdate, network, site)
             results.Append(
-                MetadataSearchResult(id=media.name,
+                MetadataSearchResult(id=titleid,
                                      name=title,
                                      score='100',
                                      lang=lang))
@@ -635,7 +642,9 @@ class EXCAgent(Agent.Movies):
             if not studio:
                 studio = parse_document_network(html)
                 if not studio:
-                    studio = parse_document_site(html)
+					studio = parse_document_site(html)
+					if not studio:
+						studio = parse_document_site2(html)
 
             if studio:
                 metadata.studio = studio
