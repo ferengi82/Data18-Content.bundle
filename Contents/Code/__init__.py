@@ -1,6 +1,5 @@
 # Data18-Content
 import re
-import os
 import random
 from datetime import datetime
 
